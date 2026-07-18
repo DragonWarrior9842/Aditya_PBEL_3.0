@@ -1,97 +1,73 @@
-# Credit Card Fraud Detection
+# 🔍 Credit Card Fraud Detection
 
-XGBoost classifier with Isolation Forest anomaly scoring for real-time fraud detection, deployed via Streamlit Community Cloud.
+A real-time fraud scoring engine that combines **supervised learning**, **unsupervised anomaly detection**, and **explainable AI** into a single Streamlit app — built to catch the 0.17% needle in a 284,807-transaction haystack.
 
-## Project structure
+---
 
-```
-.
-├── src/
-│   ├── features.py          # Feature engineering pipeline (sklearn transformers)
-│   ├── anomaly.py           # IsolationForestScorer (appends isolation_score)
-│   ├── train.py             # Training script — produces models/*.joblib
-│   └── explain.py           # SHAP-based explainability utilities
-├── streamlit_app.py         # Streamlit UI — loads models and serves predictions
-├── requirements.txt         # Python dependencies for Streamlit Community Cloud
-├── data/
-│   └── test_data.csv        # Kaggle credit card fraud dataset (not committed)
-└── models/                  # Produced by train.py (not committed)
-    ├── fraud_pipeline.joblib
-    ├── isolation_scorer.joblib
-    └── feature_pipeline.joblib
-```
+## ✨ What it does
 
-## Features
+Given a single transaction, the app returns a fraud probability, a verdict, and a visual breakdown of *why* the model made that call — in under a second, no cloud dependency required.
 
-| Group | Columns |
+- 🎯 **Fraud probability** — a calibrated 0–100% score, not just a binary flag
+- 🚦 **Verdict banner** — instant HIGH RISK / LOW RISK read
+- 🌊 **SHAP waterfall plot** — see exactly which features pushed the decision, and by how much
+- ✍️ **Manual entry or CSV upload** — test a hand-crafted transaction or drop in a real row from the dataset
+
+---
+
+## 🧠 The model
+
+- 🌲 **XGBoost classifier** — gradient-boosted trees (`n_estimators=400`, `max_depth=5`), tuned for a needle-in-a-haystack problem where fraud is 0.17% of all transactions
+- ⚖️ **SMOTE oversampling** — synthetically balances the minority (fraud) class during training so the model doesn't just learn to always guess "legit"
+- 🕵️ **Isolation Forest anomaly scoring** — a second, unsupervised model trained only on *normal* transactions, contributing an `isolation_score` feature that flags "this doesn't look like anything I've seen before" even for fraud patterns the classifier hasn't explicitly learned
+- 📐 **StandardScaler** — normalizes all 39 features before they hit the classifier
+- ⏱️ **TimeSeriesSplit cross-validation** — respects the chronological order of transactions instead of shuffling randomly, so the model is never accidentally trained on the future to predict the past
+- 📊 **PR-AUC as the north star metric** — precision-recall, not accuracy, because accuracy is meaningless when 99.83% of transactions are legitimate anyway
+
+---
+
+## 🛠️ Feature engineering
+
+39 engineered features feed the model, built entirely with custom `scikit-learn` transformers chained into a single reusable `Pipeline`:
+
+| Category | Features | What it captures |
+|---|---|---|
+| 🧬 PCA components | `V1`–`V28` | Anonymized transaction attributes from the original dataset |
+| 💰 Amount signals | `Amount`, `log_amount`, `amount_deviation` | Raw spend, log-scaled spend, and deviation from the typical transaction size |
+| 🌙 Time-of-day | `hour_of_day`, `day_of_week`, `is_night`, `hour_sin`, `hour_cos` | Cyclical time encoding — midnight and 11pm are numerically close, unlike raw hour values |
+| ⚡ Velocity | `tx_count_1h`, `tx_count_24h` | How many transactions happened in the preceding hour/day — a classic fraud tell |
+| 🚨 Anomaly | `isolation_score` | How "weird" this transaction looks to a model that's only ever seen legitimate behavior |
+
+---
+
+## 🔬 Explainability
+
+Predictions aren't a black box. Every scored transaction gets a **SHAP TreeExplainer** breakdown showing the top contributing features, their direction (pushing toward fraud or safety), and their exact magnitude — built for audit trails, not just accuracy leaderboards.
+
+---
+
+## ⚙️ Tech stack
+
+| | |
 |---|---|
-| PCA components | V1 – V28 |
-| Amount | Amount, log\_amount, amount\_deviation |
-| Time-of-day | hour\_of\_day, day\_of\_week, is\_night, hour\_sin, hour\_cos |
-| Velocity | tx\_count\_1h, tx\_count\_24h |
-| Anomaly | isolation\_score |
+| 🐍 Language | Python 3.12 |
+| 🧮 ML core | scikit-learn, XGBoost, imbalanced-learn |
+| 🔍 Explainability | SHAP |
+| 📈 Visualization | Matplotlib |
+| 🖥️ Interface | Streamlit |
+| 💾 Serialization | joblib |
 
-**39 features total.** The isolation score is produced by a fitted `IsolationForestScorer` saved alongside the classifier pipeline.
+---
 
-## Quickstart
-
-### 1. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Train the model
-
-Place the Kaggle credit card fraud CSV at `data/test_data.csv`, then:
-
-```bash
-python -m src.train
-```
-
-This runs 5-fold TimeSeriesSplit cross-validation, prints PR-AUC metrics, and writes:
-
-- `models/fraud_pipeline.joblib` — fitted scaler + SMOTE + XGBoost classifier
-- `models/isolation_scorer.joblib` — fitted IsolationForestScorer
-- `models/feature_pipeline.joblib` — fitted feature engineering pipeline (TimeFeatureTransformer, AmountFeatureTransformer, TransactionVelocityTransformer)
-
-Optional flags:
+## 📁 Under the hood
 
 ```
---data PATH          CSV path (default: data/test_data.csv)
---n-splits N         Number of TimeSeriesSplit folds (default: 5)
---sliding-window     Use SlidingWindowSplit instead of TimeSeriesSplit
---output-dir DIR     Directory for PR curve and confusion matrix plots (default: reports)
+src/
+├── features.py   🧬  engineered feature pipeline
+├── anomaly.py    🚨  isolation forest anomaly scorer
+├── train.py      🎓  training + cross-validation + model export
+└── explain.py    🔬  SHAP explainability utilities
+streamlit_app.py  🖥️  the live scoring interface
 ```
 
-### 3. Run locally
-
-```bash
-streamlit run streamlit_app.py
-```
-
-Open `http://localhost:8501`. Enter a transaction manually (Time, V1–V28, Amount) or upload a single-row CSV. The app returns:
-
-- Fraud probability
-- Predicted class (0 = Legit, 1 = Fraud)
-- Verdict banner
-- SHAP waterfall plot showing which features drove the decision
-
-### 4. Deploy to Streamlit Community Cloud
-
-1. Push this repository to GitHub (include `streamlit_app.py`, `requirements.txt`, and `src/`).
-2. Commit the `models/` directory too, or use [DVC](https://dvc.org/) / [Git LFS](https://git-lfs.com/) to track the `.joblib` files.
-3. Go to [share.streamlit.io](https://share.streamlit.io) → **New app**.
-4. Select your repo, branch, and set **Main file path** to `streamlit_app.py`.
-5. In **Advanced settings**, set the Python version to **3.11** or **3.12**.
-6. Click **Deploy**. Streamlit installs `requirements.txt` automatically.
-
-> **Note:** `pyarrow` is not listed in `requirements.txt` — Streamlit pulls a compatible version automatically. Do not add an explicit `pyarrow` pin unless a build failure specifically calls it out.
-
-## Model details
-
-- **Algorithm:** XGBoost (`n_estimators=400`, `max_depth=5`, `learning_rate=0.05`)
-- **Class imbalance:** SMOTE oversampling of the minority (fraud) class at training time; `scale_pos_weight` set from the neg/pos ratio
-- **Validation:** TimeSeriesSplit (respects temporal ordering of transactions)
-- **Metric:** PR-AUC (appropriate for highly imbalanced fraud data)
-- **Explainability:** SHAP TreeExplainer waterfall plots per transaction
+Built as a self-contained, cloud-free deployment — no external API dependency, no per-request cost, model artifacts loaded straight from disk.
