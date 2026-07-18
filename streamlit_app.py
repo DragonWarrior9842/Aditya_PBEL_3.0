@@ -58,8 +58,8 @@ def shap_waterfall(pipeline, X_row: np.ndarray, feature_names: list[str]) -> plt
         data          = X_scaled[0],
         feature_names = feature_names,
     )
-    fig, ax = plt.subplots(figsize=(10, 6))
-    shap.plots.waterfall(exp, max_display=15, show=False)
+    fig, ax = plt.subplots(figsize=(10, 4.5))
+    shap.plots.waterfall(exp, max_display=8, show=False)
     plt.tight_layout()
     return fig
 
