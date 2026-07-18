@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import shap
+from sklearn.model_selection import train_test_split
 from src.features import FEATURE_COLS, PCA_COLS, TIME_COL, AMOUNT_COL
 from src.anomaly import ANOMALY_FEATURE_COLS
 
@@ -64,6 +65,17 @@ def shap_waterfall(pipeline, X_row: np.ndarray, feature_names: list[str]) -> plt
     return fig
 
 st.set_page_config(page_title="Fraud Detection", page_icon="🔍", layout="wide")
+with st.sidebar:
+    with st.expander("👤 About the Developer", expanded=True):
+        st.markdown("**Aditya Agarwal**")
+        st.caption("Data Science / ML Enthusiast")
+        st.write("Student, Shri Ramswaroop Memorial College of Engineering and Management, Lucknow")
+        st.write("B.Tech, Computer Science Engineering")
+        st.markdown("---")
+        st.markdown("📧 aasblko@gmail.com")
+        st.markdown("💼 [LinkedIn](https://www.linkedin.com/in/aditya-agarwal-48348126b/)")
+        st.markdown("🐙 [GitHub](https://github.com/DragonWarrior9842)")
+        st.markdown("🌐 [Instagram](https://www.instagram.com/adityaagarwal67/)")
 st.title("🔍 Credit Card Fraud Detection")
 st.caption("Powered by XGBoost + Isolation Forest anomaly scoring")
 
